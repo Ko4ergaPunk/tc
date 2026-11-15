@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080d0b">
+  <title>кодчат — чат по коду</title>
+  <meta name="description" content="Создайте приватное лобби, отправьте друзьям короткий код и общайтесь. Без регистрации и установки.">
+  <meta property="og:title" content="кодчат — чат по коду">
+  <meta property="og:description" content="Создайте лобби, отправьте код друзьям и общайтесь. Без регистрации.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-backdrop" aria-hidden="true">
+    <div class="page-grid"></div>
+    <div class="glow glow-lime"></div>
+    <div class="glow glow-mint"></div>
+  </div>
+
+  <section class="screen landing" id="landing-screen">
+    <header class="landing-header">
+      <a class="brand" href="./" aria-label="кодчат — на главную">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9.5 7.5-4.5 4.5 4.5 4.5"/>
+            <path d="m14.5 7.5 4.5 4.5-4.5 4.5"/>
+          </svg>
+        </span>
+        <span class="brand-name">кодчат<span class="brand-dot">.</span></span>
+      </a>
+      <div class="header-badge">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        без аккаунтов · e2e-шифрование
+      </div>
+    </header>
+
+    <main class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">
+          <span class="eyebrow-line" aria-hidden="true"></span>
+          приватные комнаты в один код
+        </div>
+        <h1>Собери всех.<br><span class="accent-text">Скинь код.</span></h1>
+        <p class="hero-lead">Создайте лобби, отправьте друзьям короткий код — и общайтесь в защищённой комнате. Без регистрации, установки и лишних шагов.</p>
+
+        <div class="feature-row">
+          <span class="feature">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+            шифрование в браузере
+          </span>
+          <span class="feature">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+            комнаты по коду
+          </span>
+          <span class="feature">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+            без своего сервера
+          </span>
+        </div>
+
+        <div class="steps" aria-label="Как это работает">
+          <div class="step"><span>01</span>Создайте лобби</div>
+          <div class="step"><span>02</span>Отправьте код</div>
+          <div class="step"><span>03</span>Общайтесь</div>
+        </div>
+      </div>
+
+      <form class="entry-card" id="entry-form" novalidate>
+        <div class="card-head">
+          <span class="card-kicker">вход в комнату</span>
+          <span class="lock-badge" title="Трафик шифруется на устройстве">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            e2e
+          </span>
+        </div>
+
+        <label class="field" for="name-input">
+          <span class="field-label">Ваше имя</span>
+          <span class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.4 3.4-5.5 7-5.5s6.3 2.1 7 5.5"/></svg>
+            <input id="name-input" name="name" type="text" maxlength="24" autocomplete="nickname" placeholder="Например, Аня" required>
+          </span>
+        </label>
+
+        <div class="segmented" role="tablist" aria-label="Создать лобби или подключиться">
+          <button class="segment is-active" id="tab-create" type="button" role="tab" aria-selected="true" aria-controls="create-panel" data-tab="create">Создать</button>
+          <button class="segment" id="tab-join" type="button" role="tab" aria-selected="false" aria-controls="join-panel" data-tab="join" tabindex="-1">Подключиться</button>
+        </div>
+
+        <div class="tab-panel" id="create-panel" role="tabpanel" aria-labelledby="tab-create">
+          <p class="panel-note">Мы сгенерируем случайный код. Отправьте его тем, кого хотите позвать.</p>
+        </div>
+
+        <div class="tab-panel" id="join-panel" role="tabpanel" aria-labelledby="tab-join" hidden>
+          <label class="field field-code" for="code-input">
+            <span class="field-label">Код лобби</span>
+            <span class="input-wrap">
+              <span class="input-hash" aria-hidden="true">#</span>
+              <input id="code-input" name="code" class="code-input" type="text" maxlength="12" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A7K2M9XQ" aria-describedby="code-hint">
+            </span>
+          </label>
+          <p class="field-hint" id="code-hint">8 символов, которые вам отправили</p>
+        </div>
+
+        <p class="form-error" id="entry-error" role="alert" aria-live="polite"></p>
+
+        <button class="primary-button" id="entry-submit" type="submit">
+          <span class="button-label" id="entry-submit-label">Создать лобби</span>
+          <span class="button-spinner" aria-hidden="true"></span>
+          <svg class="button-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+
+        <p class="card-footnote">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8 7.5 9.5 4.3-1.5 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m9 12 2 2 4-4"/></svg>
+          Сообщения видит только тот, у кого есть код
+        </p>
+      </form>
+    </main>
+
+    <footer class="landing-footer">
+      <p>Лобби живёт, пока в нём есть хотя бы один участник.</p>
+      <p class="footer-mark">кодчат / 2026</p>
+    </footer>
+  </section>
+
+  <section class="screen chat-screen" id="chat-screen" hidden>
+    <header class="chat-topbar">
+      <div class="chat-brand">
+        <a class="brand brand-small" href="./" id="chat-home" aria-label="Выйти и вернуться на главную">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9.5 7.5-4.5 4.5 4.5 4.5"/>
+              <path d="m14.5 7.5 4.5 4.5-4.5 4.5"/>
+            </svg>
+          </span>
+          <span class="brand-name">кодчат<span class="brand-dot">.</span></span>
+        </a>
+        <span class="topbar-divider" aria-hidden="true"></span>
+        <button class="room-code-button" id="topbar-code" type="button" title="Скопировать код">
+          <span class="room-hash">#</span>
+          <span id="topbar-code-text">···</span>
+        </button>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="connection-pill is-connecting" id="connection-pill" role="status">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="connection-text">Подключение…</span>
+        </div>
+        <button class="icon-button sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Показать участников" aria-expanded="false" aria-controls="chat-sidebar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 19a4 4 0 0 0-8 0"/><circle cx="12" cy="9" r="3"/><circle cx="12" cy="12" r="9"/></svg>
+          <span id="mobile-count">1</span>
+        </button>
+        <button class="leave-button" id="leave-button" type="button" aria-label="Выйти из лобби">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></svg>
+          <span>Выйти</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="chat-shell">
+      <aside class="chat-sidebar" id="chat-sidebar" aria-label="Информация о лобби">
+        <div class="sidebar-room">
+          <div class="sidebar-room-top">
+            <span class="sidebar-label">код лобби</span>
+            <button class="copy-mini" id="copy-code-button" type="button" aria-label="Скопировать код лобби">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            </button>
+          </div>
+          <button class="sidebar-code" id="sidebar-code" type="button" title="Скопировать код">
+            <span id="sidebar-code-text">···</span>
+          </button>
+          <div class="sidebar-room-actions">
+            <button class="soft-button" id="copy-link-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></svg>
+              Ссылка
+            </button>
+            <button class="soft-button" id="share-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg>
+              Поделиться
+            </button>
+          </div>
+        </div>
+
+        <div class="participants-section">
+          <div class="participants-head">
+            <span class="sidebar-label">участники</span>
+            <span class="count-badge" id="participant-count">1</span>
+          </div>
+          <ul class="participant-list" id="participant-list"></ul>
+        </div>
+
+        <div class="sidebar-privacy">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <p>Шифрование происходит на устройстве. Публичный брокер передаёт только зашифрованные данные.</p>
+        </div>
+      </aside>
+      <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+
+      <main class="chat-main">
+        <div class="offline-banner" id="offline-banner" hidden role="status">
+          <span class="connection-dot" aria-hidden="true"></span>
+          Связь потеряна. Переподключаемся…
+        </div>
+
+        <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Сообщения чата">
+          <div class="messages-list" id="messages-list"></div>
+        </div>
+
+        <button class="new-messages" id="new-messages" type="button" hidden>
+          Новые сообщения
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        </button>
+
+        <div class="composer-area">
+          <div class="typing-line" id="typing-line" aria-live="polite"></div>
+          <form class="composer" id="message-form">
+            <textarea id="message-input" rows="1" maxlength="2000" placeholder="Напишите сообщение…" aria-label="Сообщение" enterkeyhint="send"></textarea>
+            <div class="composer-side">
+              <span class="char-count" id="char-count" aria-hidden="true"></span>
+              <button class="send-button" id="send-button" type="submit" aria-label="Отправить сообщение" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Z"/><path d="M7 12h14"/></svg>
+              </button>
+            </div>
+          </form>
+          <p class="composer-hint">Enter — отправить · Shift + Enter — новая строка</p>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="vendor/mqtt.min.js"></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
