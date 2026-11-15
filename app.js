@@ -6,6 +6,9 @@
   const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const CODE_LENGTH = 8;
   const MAX_MESSAGE_LENGTH = 2000;
+  const MAX_IMAGE_CHARS = 380000;
+  const MAX_IMAGE_FILE_BYTES = 25 * 1024 * 1024;
+  const MAX_PAYLOAD_CHARS = 800000;
   const MAX_MESSAGES = 320;
   const HISTORY_LIMIT = 200;
   const SYNC_LIMIT = 30;
@@ -67,6 +70,11 @@
     messageForm: $("message-form"),
     messageInput: $("message-input"),
     sendButton: $("send-button"),
+    attachButton: $("attach-button"),
+    imageInput: $("image-input"),
+    attachmentPreview: $("attachment-preview"),
+    attachmentImage: $("attachment-image"),
+    attachmentRemove: $("attachment-remove"),
     charCount: $("char-count"),
     toastRegion: $("toast-region")
   };
@@ -91,6 +99,8 @@
     selfTyping: false,
     selfTypingTimer: null,
     lastTypingPing: 0,
+    pendingImage: null,
+    imageBusy: false,
     saveTimer: null,
     presenceTimer: null,
     pruneTimer: null,
@@ -144,6 +154,16 @@
     });
     els.messageInput.addEventListener("input", handleComposerInput);
     els.messageInput.addEventListener("keydown", handleComposerKeydown);
+    els.messageInput.addEventListener("paste", handleComposerPaste);
+    els.attachButton.addEventListener("click", () => els.imageInput.click());
+    els.imageInput.addEventListener("change", () => {
+      const file = els.imageInput.files && els.imageInput.files[0];
+      els.imageInput.value = "";
+      if (file) {
+        void attachImageFile(file);
+      }
+    });
+    els.attachmentRemove.addEventListener("click", clearAttachment);
     els.newMessages.addEventListener("click", scrollToBottom);
     els.messages.addEventListener("scroll", handleMessagesScroll, { passive: true });
 
@@ -337,6 +357,7 @@
     els.typingLine.replaceChildren();
     els.newMessages.hidden = true;
     els.messageInput.value = "";
+    clearAttachment();
     resizeComposer();
     updateComposerState();
     setConnection("connecting", "Подключение…");
@@ -353,7 +374,7 @@
     els.landingScreen.hidden = true;
     els.chatScreen.hidden = false;
     document.body.classList.add("in-chat");
-    document.title = `#${formatCode(state.code)} — кодчат`;
+    document.title = `#${formatCode(state.code)} — tempchat`;
     window.scrollTo(0, 0);
     if (window.matchMedia("(pointer: fine)").matches) {
       window.setTimeout(() => els.messageInput.focus(), 220);
@@ -364,7 +385,7 @@
     els.chatScreen.hidden = true;
     els.landingScreen.hidden = false;
     document.body.classList.remove("in-chat");
-    document.title = "кодчат — чат по коду";
+    document.title = "tempchat — чат по коду";
     window.scrollTo(0, 0);
     setEntryBusy(false);
     updateSubmitLabel();
@@ -535,7 +556,7 @@
   async function openPayload(payload, key) {
     const raw =
       typeof payload === "string" ? payload : decoder.decode(payload);
-    if (raw.length > 200000) {
+    if (raw.length > MAX_PAYLOAD_CHARS) {
       throw new Error("Payload too large");
     }
     const envelope = JSON.parse(raw);
@@ -742,16 +763,26 @@
       state.syncResponses.add(event.reqId);
     }
 
+    let imageBudget = 480000;
     const chats = state.messages
       .filter((message) => message.kind === "chat")
       .slice(-SYNC_LIMIT)
-      .map((message) => ({
-        id: message.id,
-        name: message.name,
-        msgId: message.msgId,
-        text: message.text,
-        ts: message.ts
-      }));
+      .map((message) => {
+        const item = {
+          id: message.id,
+          name: message.name,
+          msgId: message.msgId,
+          text: message.text,
+          ts: message.ts
+        };
+        if (message.image && message.image.length <= imageBudget) {
+          imageBudget -= message.image.length;
+          item.image = message.image;
+          item.imageW = message.imageW;
+          item.imageH = message.imageH;
+        }
+        return item;
+      });
 
     if (!chats.length) {
       return;
@@ -810,6 +841,9 @@
       id: message.id,
       name: message.name,
       text: message.text,
+      image: message.image,
+      imageW: message.imageW,
+      imageH: message.imageH,
       ts: message.ts,
       mine: Boolean(message.mine)
     });
@@ -850,15 +884,13 @@
     if (!id || !msgId) {
       return null;
     }
+    const image = normalizeImage(raw.image);
     let text = typeof raw.text === "string" ? raw.text : "";
-    if (!text.trim()) {
-      return null;
-    }
     text = text
       .slice(0, MAX_MESSAGE_LENGTH)
       .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
       .replace(/[\u202a-\u202e\u2066-\u2069]/g, "");
-    if (!text) {
+    if (!text.trim() && !image) {
       return null;
     }
     const ts = Number(raw.ts);
@@ -869,9 +901,30 @@
       id,
       msgId,
       name: cleanName(raw.name) || "Гость",
-      text,
+      text: text.trim() ? text : "",
+      image,
+      imageW: image ? normalizeDimension(raw.imageW) : 0,
+      imageH: image ? normalizeDimension(raw.imageH) : 0,
       ts: Math.min(ts, Date.now() + 300000)
     };
+  }
+
+  function normalizeImage(value) {
+    if (typeof value !== "string" || value.length > MAX_IMAGE_CHARS) {
+      return "";
+    }
+    if (!/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(value)) {
+      return "";
+    }
+    return value;
+  }
+
+  function normalizeDimension(value) {
+    const size = Math.round(Number(value));
+    if (!Number.isFinite(size) || size <= 0) {
+      return 0;
+    }
+    return Math.min(size, 8000);
   }
 
   function compareMessages(a, b) {
@@ -992,10 +1045,28 @@
     const bubble = document.createElement("div");
     bubble.className = "message-bubble";
 
-    const text = document.createElement("span");
-    text.className = "message-text";
-    text.textContent = message.text;
-    bubble.appendChild(text);
+    if (message.image) {
+      bubble.classList.add("has-image");
+      const image = document.createElement("img");
+      image.className = "message-image";
+      image.src = message.image;
+      image.alt = message.text ? message.text.slice(0, 120) : `Изображение от ${message.name}`;
+      image.loading = "lazy";
+      image.decoding = "async";
+      if (message.imageW && message.imageH) {
+        image.width = message.imageW;
+        image.height = message.imageH;
+        image.style.aspectRatio = `${message.imageW} / ${message.imageH}`;
+      }
+      bubble.appendChild(image);
+    }
+
+    if (message.text) {
+      const text = document.createElement("span");
+      text.className = "message-text";
+      text.textContent = message.text;
+      bubble.appendChild(text);
+    }
 
     const time = document.createElement("span");
     time.className = "message-time";
@@ -1180,11 +1251,16 @@
 
   function sendCurrentMessage() {
     const text = els.messageInput.value.trim().slice(0, MAX_MESSAGE_LENGTH);
-    if (!text) {
+    const attachment = state.pendingImage;
+    if (!text && !attachment) {
       return;
     }
     if (!state.connected) {
       showToast("Нет соединения. Сообщение можно отправить после переподключения.", "error");
+      return;
+    }
+    if (state.imageBusy) {
+      showToast("Изображение ещё обрабатывается. Подождите пару секунд.", "error");
       return;
     }
 
@@ -1195,6 +1271,11 @@
       text,
       ts: Date.now()
     };
+    if (attachment) {
+      message.image = attachment.dataUrl;
+      message.imageW = attachment.width;
+      message.imageH = attachment.height;
+    }
 
     addChatMessage(
       { ...message, mine: true },
@@ -1203,10 +1284,146 @@
     publishEvent({ type: "chat", ...message });
 
     els.messageInput.value = "";
+    clearAttachment();
     resizeComposer();
-    updateComposerState();
     stopSelfTyping();
     els.messageInput.focus();
+  }
+
+  function handleComposerPaste(event) {
+    const items = event.clipboardData && event.clipboardData.items;
+    if (!items) {
+      return;
+    }
+    for (const item of items) {
+      if (item.kind === "file" && item.type && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          event.preventDefault();
+          void attachImageFile(file);
+        }
+        return;
+      }
+    }
+  }
+
+  async function attachImageFile(file) {
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      showToast("Это не похоже на изображение.", "error");
+      return;
+    }
+    if (file.size > MAX_IMAGE_FILE_BYTES) {
+      showToast("Файл слишком большой. Выберите изображение до 25 МБ.", "error");
+      return;
+    }
+
+    state.imageBusy = true;
+    updateComposerState();
+    try {
+      const image = await compressImage(file);
+      state.pendingImage = image;
+      renderAttachment();
+    } catch (_) {
+      showToast("Не удалось обработать изображение. Попробуйте другое.", "error");
+    } finally {
+      state.imageBusy = false;
+      updateComposerState();
+    }
+  }
+
+  function compressImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const result = renderCompressed(image);
+          URL.revokeObjectURL(url);
+          resolve(result);
+        } catch (error) {
+          URL.revokeObjectURL(url);
+          reject(error);
+        }
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("decode failed"));
+      };
+      image.src = url;
+    });
+  }
+
+  function renderCompressed(image) {
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error("empty image");
+    }
+
+    let type = "image/webp";
+    const probe = document.createElement("canvas");
+    if (!probe.toDataURL("image/webp").startsWith("data:image/webp")) {
+      type = "image/jpeg";
+    }
+
+    const canvas = document.createElement("canvas");
+    let scale = Math.min(1, 1280 / Math.max(sourceWidth, sourceHeight));
+    const draw = () => {
+      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+      const context = canvas.getContext("2d");
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      if (type === "image/jpeg") {
+        context.fillStyle = "#0b120f";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    };
+
+    draw();
+    let quality = 0.85;
+    let dataUrl = canvas.toDataURL(type, quality);
+
+    while (dataUrl.length > MAX_IMAGE_CHARS && quality > 0.4) {
+      quality -= 0.1;
+      dataUrl = canvas.toDataURL(type, quality);
+    }
+
+    while (
+      dataUrl.length > MAX_IMAGE_CHARS &&
+      Math.max(canvas.width, canvas.height) > 360
+    ) {
+      scale *= 0.78;
+      draw();
+      dataUrl = canvas.toDataURL(type, quality);
+    }
+
+    if (dataUrl.length > MAX_IMAGE_CHARS) {
+      throw new Error("image too large");
+    }
+
+    return {
+      dataUrl,
+      width: canvas.width,
+      height: canvas.height
+    };
+  }
+
+  function renderAttachment() {
+    const image = state.pendingImage;
+    if (!image) {
+      els.attachmentPreview.hidden = true;
+      els.attachmentImage.removeAttribute("src");
+      return;
+    }
+    els.attachmentImage.src = image.dataUrl;
+    els.attachmentPreview.hidden = false;
+  }
+
+  function clearAttachment() {
+    state.pendingImage = null;
+    renderAttachment();
+    updateComposerState();
   }
 
   function sendTyping(active) {
@@ -1237,8 +1454,12 @@
   function updateComposerState() {
     const value = els.messageInput.value;
     const length = value.length;
-    const canSend = state.connected && Boolean(value.trim());
+    const canSend =
+      state.connected &&
+      !state.imageBusy &&
+      (Boolean(value.trim()) || Boolean(state.pendingImage));
     els.sendButton.disabled = !canSend;
+    els.attachButton.disabled = state.imageBusy;
     els.charCount.textContent = length > 1500 ? `${length}/${MAX_MESSAGE_LENGTH}` : "";
     els.charCount.classList.toggle("is-warning", length > 1800);
   }
@@ -1484,10 +1705,10 @@
       return;
     }
     const url = buildRoomLink();
-    const text = `Заходи в лобби «${formatCode(state.code)}» в кодчате`;
+    const text = `Заходи в лобби «${formatCode(state.code)}» в tempchat`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "кодчат", text, url });
+        await navigator.share({ title: "tempchat", text, url });
         return;
       } catch (error) {
         if (error && error.name === "AbortError") {
@@ -1557,6 +1778,9 @@
         id: message.id,
         name: message.name,
         text: message.text,
+        image: message.image || undefined,
+        imageW: message.imageW || undefined,
+        imageH: message.imageH || undefined,
         ts: message.ts,
         mine: Boolean(message.mine)
       }));
@@ -1566,7 +1790,22 @@
       } else {
         localStorage.removeItem(state.room.historyKey);
       }
-    } catch (_) {}
+    } catch (_) {
+      try {
+        if (!chats.length) {
+          return;
+        }
+        const lightChats = chats.map((message) => ({
+          msgId: message.msgId,
+          id: message.id,
+          name: message.name,
+          text: message.text || "[изображение]",
+          ts: message.ts,
+          mine: message.mine
+        }));
+        localStorage.setItem(state.room.historyKey, JSON.stringify(lightChats));
+      } catch (_) {}
+    }
   }
 
   function flushHistory() {
